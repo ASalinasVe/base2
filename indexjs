@@ -1,0 +1,32 @@
+document.addEventListener("DOMContentLoaded", function() {
+    document.getElementById("createCategoryForm").addEventListener("submit", function(event) {
+        event.preventDefault();
+
+        var formData = {
+            name: document.getElementById("categoryName").value,
+            description: document.getElementById("categoryDescription").value
+        };
+        fetch('/categories', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(formData)
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(err => { throw new Error(err.error) });
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Success:', data);
+            alert('Category created successfully!');
+            // Optionally, clear the form fields
+            document.getElementById("createCategoryForm").reset();
+        })
+        .catch((error) => {
+            console.error('Error:', error);
+            alert('Error creating category: ' + error.message);
+        });
+    });
