@@ -1,0 +1,272 @@
+from flask import Flask, request, jsonify, render_template
+from flask_pymongo import PyMongo
+from bson.objectid import ObjectId
+from datetime import datetime
+from config import Config
+
+app = Flask(__name__)
+app.config.from_object(Config)
+mongo = PyMongo(app)
+
+def convert_objectid_to_str(doc):
+    if isinstance(doc, list):
+        for item in doc:
+            item['_id'] = str(item['_id'])
+    else:
+        doc['_id'] = str(doc['_id'])
+    return doc
+
+
+# CRUD operations for the 'categories' collection
+@app.route('/categories', methods=['POST'])
+def create_category():
+    data = request.json
+    # Ensure the necessary fields are present
+    if 'name' not in data or 'description' not in data:
+        return jsonify({"error": "Name and description are required"}), 400
+    # Add timestamps for createdAt and updatedAt
+    data['createdAt'] = datetime.utcnow()
+    data['updatedAt'] = datetime.utcnow()
+    # Insert the new category into the collection
+    result = mongo.db.categories.insert_one(data)
+    return jsonify({"_id": str(result.inserted_id)}), 201
+
+# Other CRUD operations (unchanged)
+@app.route('/categories', methods=['GET'])
+def get_categories():
+    categories = mongo.db.categories.find()
+    result = [convert_objectid_to_str(cat) for cat in categories]
+    return jsonify(result), 200
+
+
+@app.route('/categories/<category_id>', methods=['GET'])
+def get_category(category_id):
+    category = mongo.db.categories.find_one_or_404({"_id": ObjectId(category_id)})
+    return jsonify(convert_objectid_to_str(category)), 200
+
+
+@app.route('/categories/<category_id>', methods=['PUT'])
+def update_category(category_id):
+    data = request.json
+    data['updatedAt'] = datetime.utcnow()
+    mongo.db.categories.update_one({"_id": ObjectId(category_id)}, {"$set": data})
+    return jsonify({"msg": "Category updated"}), 200
+
+
+@app.route('/categories/<category_id>', methods=['DELETE'])
+def delete_category(category_id):
+    mongo.db.categories.delete_one({"_id": ObjectId(category_id)})
+    return jsonify({"msg": "Category deleted"}), 200
+
+
+# CRUD operations for the 'carts' collection
+
+@app.route('/carts', methods=['POST'])
+def create_cart():
+    data = request.json
+
+    # Ensure the necessary fields are present
+    if 'userId' not in data or 'products' not in data:
+        return jsonify({"error": "userId and products are required"}), 400
+
+    # Add timestamps for createdAt and updatedAt
+    data['createdAt'] = datetime.utcnow()
+    data['updatedAt'] = datetime.utcnow()
+
+    # Initialize totalPrice if not present
+    if 'totalPrice' not in data:
+        data['totalPrice'] = 0.0
+
+    # Insert the new cart into the collection
+    result = mongo.db.carts.insert_one(data)
+    return jsonify({"_id": str(result.inserted_id)}), 201
+
+
+@app.route('/carts', methods=['GET'])
+def get_carts():
+    carts = mongo.db.carts.find()
+    result = [convert_objectid_to_str(cart) for cart in carts]
+    return jsonify(result), 200
+
+
+@app.route('/carts/<cart_id>', methods=['GET'])
+def get_cart(cart_id):
+    cart = mongo.db.carts.find_one_or_404({"_id": ObjectId(cart_id)})
+    return jsonify(convert_objectid_to_str(cart)), 200
+
+
+@app.route('/carts/<cart_id>', methods=['PUT'])
+def update_cart(cart_id):
+    data = request.json
+    data['updatedAt'] = datetime.utcnow()
+
+    # Update the cart in the collection
+    mongo.db.carts.update_one({"_id": ObjectId(cart_id)}, {"$set": data})
+    return jsonify({"msg": "Cart updated"}), 200
+
+
+@app.route('/carts/<cart_id>', methods=['DELETE'])
+def delete_cart(cart_id):
+    mongo.db.carts.delete_one({"_id": ObjectId(cart_id)})
+    return jsonify({"msg": "Cart deleted"}), 200
+
+
+# CRUD operations for the 'orders' collection
+
+@app.route('/orders', methods=['POST'])
+def create_order():
+    data = request.json
+
+    # Ensure the necessary fields are present
+    required_fields = ['userId', 'cartId', 'paymentMethod', 'paymentStatus', 'totalPrice']
+    missing_fields = [field for field in required_fields if field not in data]
+    if missing_fields:
+        return jsonify({"error": f"Missing fields: {', '.join(missing_fields)}"}), 400
+
+    # Add timestamps for createdAt and updatedAt
+    data['createdAt'] = datetime.utcnow()
+    data['updatedAt'] = datetime.utcnow()
+
+    # Insert the new order into the collection
+    result = mongo.db.orders.insert_one(data)
+    return jsonify({"_id": str(result.inserted_id)}), 201
+
+
+@app.route('/orders', methods=['GET'])
+def get_orders():
+    orders = mongo.db.orders.find()
+    result = [convert_objectid_to_str(order) for order in orders]
+    return jsonify(result), 200
+
+
+@app.route('/orders/<order_id>', methods=['GET'])
+def get_order(order_id):
+    order = mongo.db.orders.find_one_or_404({"_id": ObjectId(order_id)})
+    return jsonify(convert_objectid_to_str(order)), 200
+
+
+@app.route('/orders/<order_id>', methods=['PUT'])
+def update_order(order_id):
+    data = request.json
+    data['updatedAt'] = datetime.utcnow()
+
+    # Update the order in the collection
+    mongo.db.orders.update_one({"_id": ObjectId(order_id)}, {"$set": data})
+    return jsonify({"msg": "Order updated"}), 200
+
+
+@app.route('/orders/<order_id>', methods=['DELETE'])
+def delete_order(order_id):
+    mongo.db.orders.delete_one({"_id": ObjectId(order_id)})
+    return jsonify({"msg": "Order deleted"}), 200
+
+
+# CRUD operations for the 'users' collection
+
+@app.route('/users', methods=['POST'])
+def create_user():
+    data = request.json
+
+    # Validate required fields
+    required_fields = ['name', 'email', 'password']
+    missing_fields = [field for field in required_fields if field not in data]
+    if missing_fields:
+        return jsonify({"error": f"Missing fields: {', '.join(missing_fields)}"}), 400
+
+    # Add timestamps for createdAt and updatedAt
+    data['createdAt'] = datetime.utcnow()
+    data['updatedAt'] = datetime.utcnow()
+
+    # Insert the new user into the collection
+    result = mongo.db.users.insert_one(data)
+    return jsonify({"_id": str(result.inserted_id)}), 201
+
+
+@app.route('/users', methods=['GET'])
+def get_users():
+    users = mongo.db.users.find()
+    result = [convert_objectid_to_str(user) for user in users]
+    return jsonify(result), 200
+
+
+@app.route('/users/<user_id>', methods=['GET'])
+def get_user(user_id):
+    user = mongo.db.users.find_one_or_404({"_id": ObjectId(user_id)})
+    return jsonify(convert_objectid_to_str(user)), 200
+
+
+@app.route('/users/<user_id>', methods=['PUT'])
+def update_user(user_id):
+    data = request.json
+    data['updatedAt'] = datetime.utcnow()
+
+    # Update the user in the collection
+    mongo.db.users.update_one({"_id": ObjectId(user_id)}, {"$set": data})
+    return jsonify({"msg": "User updated"}), 200
+
+
+@app.route('/users/<user_id>', methods=['DELETE'])
+def delete_user(user_id):
+    mongo.db.users.delete_one({"_id": ObjectId(user_id)})
+    return jsonify({"msg": "User deleted"}), 200
+
+
+# CRUD operations for the 'products' collection
+
+@app.route('/products', methods=['POST'])
+def create_product():
+    data = request.json
+
+    # Validate required fields
+    required_fields = ['name', 'description', 'categoryId', 'price', 'photos', 'views', 'purchased']
+    missing_fields = [field for field in required_fields if field not in data]
+    if missing_fields:
+        return jsonify({"error": f"Missing fields: {', '.join(missing_fields)}"}), 400
+
+    # Add timestamps for createdAt and updatedAt
+    data['createdAt'] = datetime.utcnow()
+    data['updatedAt'] = datetime.utcnow()
+
+    # Insert the new product into the collection
+    result = mongo.db.products.insert_one(data)
+    return jsonify({"_id": str(result.inserted_id)}), 201
+
+
+@app.route('/products', methods=['GET'])
+def get_products():
+    products = mongo.db.products.find()
+    return jsonify([convert_objectid_to_str(product) for product in products]), 200
+
+
+@app.route('/products/<product_id>', methods=['GET'])
+def get_product(product_id):
+    product = mongo.db.products.find_one_or_404({"_id": ObjectId(product_id)})
+    return jsonify(convert_objectid_to_str(product)), 200
+
+
+@app.route('/products/<product_id>', methods=['PUT'])
+def update_product(product_id):
+    data = request.json
+    data['updatedAt'] = datetime.utcnow()
+
+    # Update the product in the collection
+    mongo.db.products.update_one({"_id": ObjectId(product_id)}, {"$set": data})
+    return jsonify({"msg": "Product updated"}), 200
+
+
+@app.route('/products/<product_id>', methods=['DELETE'])
+def delete_product(product_id):
+    mongo.db.products.delete_one({"_id": ObjectId(product_id)})
+    return jsonify({"msg": "Product deleted"}), 200
+
+
+app = Flask(__name__)
+
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+
+if __name__ == '__main__':
+    app.run(debug=True)
